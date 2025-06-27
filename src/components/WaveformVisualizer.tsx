@@ -25,6 +25,7 @@ const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>();
+  const timeRef = useRef(0);
 
   const generateWaveform = (
     frequency: number,
@@ -35,25 +36,26 @@ const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
   ) => {
     const points = [];
     for (let i = 0; i < samples; i++) {
-      const x = (i / samples) * 4 * Math.PI;
-      const t = time * 0.001 + x / frequency * 50;
+      const x = (i / samples) * 8 * Math.PI; // More cycles for better visualization
+      const t = time * 0.005 + x / Math.max(frequency / 100, 1); // Better time scaling
       let y = 0;
 
       switch (waveform) {
         case 'sine':
-          y = Math.sin(t);
+          y = Math.sin(t * frequency / 50);
           break;
         case 'square':
-          y = Math.sign(Math.sin(t));
+          y = Math.sign(Math.sin(t * frequency / 50));
           break;
         case 'triangle':
-          y = (2 / Math.PI) * Math.asin(Math.sin(t));
+          y = (2 / Math.PI) * Math.asin(Math.sin(t * frequency / 50));
           break;
         case 'sawtooth':
-          y = 2 * (t / (2 * Math.PI) - Math.floor(t / (2 * Math.PI) + 0.5));
+          const period = (2 * Math.PI) / (frequency / 50);
+          y = 2 * ((t % period) / period - 0.5);
           break;
         default:
-          y = Math.sin(t);
+          y = Math.sin(t * frequency / 50);
       }
 
       points.push(y * amplitude * masterVolume);
@@ -68,62 +70,71 @@ const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const rect = canvas.getBoundingClientRect();
     const { width, height } = canvas;
+    
+    // Clear canvas
     ctx.clearRect(0, 0, width, height);
 
-    const samples = width;
+    const samples = Math.floor(width / 2); // Reduce samples for better performance
     const centerY = height / 2;
-    const leftWave = generateWaveform(leftChannel.frequency, leftChannel.waveform, leftChannel.amplitude, time, samples);
-    const rightWave = generateWaveform(rightChannel.frequency, rightChannel.waveform, rightChannel.amplitude, time, samples);
+    
+    try {
+      const leftWave = generateWaveform(leftChannel.frequency, leftChannel.waveform, leftChannel.amplitude, time, samples);
+      const rightWave = generateWaveform(rightChannel.frequency, rightChannel.waveform, rightChannel.amplitude, time, samples);
 
-    // Draw left channel (top half)
-    ctx.beginPath();
-    ctx.strokeStyle = isPlaying ? '#06b6d4' : '#475569';
-    ctx.lineWidth = 2;
-    ctx.globalAlpha = isPlaying ? 1 : 0.5;
+      // Draw left channel (top half)
+      ctx.beginPath();
+      ctx.strokeStyle = isPlaying ? '#06b6d4' : '#64748b';
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = isPlaying ? 1 : 0.5;
 
-    for (let i = 0; i < samples; i++) {
-      const x = (i / samples) * width;
-      const y = centerY - (leftWave[i] * centerY * 0.8) / 2;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+      for (let i = 0; i < samples; i++) {
+        const x = (i / samples) * width;
+        const y = centerY - (leftWave[i] * (centerY * 0.7));
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Draw right channel (bottom half)
+      ctx.beginPath();
+      ctx.strokeStyle = isPlaying ? '#f59e0b' : '#64748b';
+      ctx.lineWidth = 2;
+
+      for (let i = 0; i < samples; i++) {
+        const x = (i / samples) * width;
+        const y = centerY + (rightWave[i] * (centerY * 0.7));
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Draw center line
+      ctx.beginPath();
+      ctx.strokeStyle = '#374151';
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.3;
+      ctx.moveTo(0, centerY);
+      ctx.lineTo(width, centerY);
+      ctx.stroke();
+
+      // Draw frequency labels with better positioning
+      ctx.globalAlpha = 1;
+      ctx.font = '12px Inter, sans-serif';
+      ctx.fillStyle = '#06b6d4';
+      ctx.fillText(`L: ${leftChannel.frequency}Hz ${leftChannel.waveform}`, 16, 24);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText(`R: ${rightChannel.frequency}Hz ${rightChannel.waveform}`, 16, height - 12);
+    } catch (error) {
+      console.error('Error drawing waveform:', error);
     }
-    ctx.stroke();
-
-    // Draw right channel (bottom half)
-    ctx.beginPath();
-    ctx.strokeStyle = isPlaying ? '#f59e0b' : '#475569';
-    ctx.lineWidth = 2;
-
-    for (let i = 0; i < samples; i++) {
-      const x = (i / samples) * width;
-      const y = centerY + (rightWave[i] * centerY * 0.8) / 2;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-
-    // Draw center line
-    ctx.beginPath();
-    ctx.strokeStyle = '#374151';
-    ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.5;
-    ctx.moveTo(0, centerY);
-    ctx.lineTo(width, centerY);
-    ctx.stroke();
-
-    // Draw frequency labels
-    ctx.globalAlpha = 1;
-    ctx.font = '14px Inter, sans-serif';
-    ctx.fillStyle = '#06b6d4';
-    ctx.fillText(`L: ${leftChannel.frequency}Hz ${leftChannel.waveform}`, 20, 30);
-    ctx.fillStyle = '#f59e0b';
-    ctx.fillText(`R: ${rightChannel.frequency}Hz ${rightChannel.waveform}`, 20, height - 20);
   };
 
-  const animate = (time: number) => {
-    drawWaveform(time);
+  const animate = (currentTime: number) => {
     if (isPlaying) {
+      timeRef.current = currentTime;
+      drawWaveform(currentTime);
       animationRef.current = requestAnimationFrame(animate);
     }
   };
@@ -135,7 +146,7 @@ const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
-      drawWaveform(0);
+      drawWaveform(timeRef.current);
     }
 
     return () => {
@@ -150,14 +161,24 @@ const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
     if (!canvas) return;
 
     const resizeCanvas = () => {
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * window.devicePixelRatio;
-      canvas.height = rect.height * window.devicePixelRatio;
+      const container = canvas.parentElement;
+      if (!container) return;
+      
+      const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      
+      canvas.width = rect.width * dpr;
+      canvas.height = 256 * dpr;
+      
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        ctx.scale(dpr, dpr);
       }
-      drawWaveform(0);
+      
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = '256px';
+      
+      drawWaveform(timeRef.current);
     };
 
     resizeCanvas();
