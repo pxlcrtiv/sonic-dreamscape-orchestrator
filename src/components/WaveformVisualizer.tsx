@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 
@@ -83,10 +82,12 @@ const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
       const leftWave = generateWaveform(leftChannel.frequency, leftChannel.waveform, leftChannel.amplitude, time, samples);
       const rightWave = generateWaveform(rightChannel.frequency, rightChannel.waveform, rightChannel.amplitude, time, samples);
 
-      // Draw left channel (top half)
+      // Draw left channel (top half) - Much thicker lines
       ctx.beginPath();
       ctx.strokeStyle = isPlaying ? '#06b6d4' : '#64748b';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 4; // Increased from 2 to 4
+      ctx.lineCap = 'round'; // Rounded line caps for better appearance
+      ctx.lineJoin = 'round'; // Rounded line joins
       ctx.globalAlpha = isPlaying ? 1 : 0.5;
 
       for (let i = 0; i < samples; i++) {
@@ -97,10 +98,12 @@ const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
       }
       ctx.stroke();
 
-      // Draw right channel (bottom half)
+      // Draw right channel (bottom half) - Much thicker lines
       ctx.beginPath();
       ctx.strokeStyle = isPlaying ? '#f59e0b' : '#64748b';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 4; // Increased from 2 to 4
+      ctx.lineCap = 'round'; // Rounded line caps for better appearance
+      ctx.lineJoin = 'round'; // Rounded line joins
 
       for (let i = 0; i < samples; i++) {
         const x = (i / samples) * width;
@@ -110,22 +113,22 @@ const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
       }
       ctx.stroke();
 
-      // Draw center line
+      // Draw center line - Slightly thicker
       ctx.beginPath();
       ctx.strokeStyle = '#374151';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 2; // Increased from 1 to 2
       ctx.globalAlpha = 0.3;
       ctx.moveTo(0, centerY);
       ctx.lineTo(width, centerY);
       ctx.stroke();
 
-      // Draw frequency labels with better positioning
+      // Draw frequency labels with better positioning and styling
       ctx.globalAlpha = 1;
-      ctx.font = '12px Inter, sans-serif';
+      ctx.font = 'bold 14px Inter, sans-serif'; // Made font bold and slightly larger
       ctx.fillStyle = '#06b6d4';
-      ctx.fillText(`L: ${leftChannel.frequency}Hz ${leftChannel.waveform}`, 16, 24);
+      ctx.fillText(`L: ${leftChannel.frequency}Hz ${leftChannel.waveform}`, 16, 28);
       ctx.fillStyle = '#f59e0b';
-      ctx.fillText(`R: ${rightChannel.frequency}Hz ${rightChannel.waveform}`, 16, height - 12);
+      ctx.fillText(`R: ${rightChannel.frequency}Hz ${rightChannel.waveform}`, 16, height - 16);
     } catch (error) {
       console.error('Error drawing waveform:', error);
     }
